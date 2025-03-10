@@ -7,3 +7,11 @@ edition = "2024"
 tokio = { version = "1", features = ["full"] }
 async-std = "1.12"
 rand = "0.8"
+
+[lib]
+path = "src/lib.rs"
+#crate-type = ["dylib"]
+
+[[bin]]
+name = "taskmanager_async"
+path = "src/main.rs"
