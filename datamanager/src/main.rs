@@ -1,6 +1,8 @@
+use std::str::FromStr;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use once_cell::sync::Lazy;
+
 
 #[derive(Clone)]
 pub struct ParameterManager {
@@ -73,8 +75,8 @@ impl ParameterManager {
         Arc::clone(&Arc::new(Mutex::new(instance.take().unwrap())))
     }
 
-    pub fn set_parameter(&mut self, key: &str, value: &str) {
-        let mut value = value.trim().to_string();
+    pub fn set_parameter<T: ToString>(&mut self, key: &str, value: T) {
+        let mut value = value.to_string().trim().to_string();
         if self.filter_value_with_rule(&key, &mut value) {
             let mut b_changed = true;
 
@@ -102,15 +104,6 @@ impl ParameterManager {
             }
         }
     }
-
-    pub fn set_parameter_int(&mut self, key: &str, value: i32) {
-        self.set_parameter(key, &value.to_string());
-    }
-
-    pub fn set_parameter_bool(&mut self, key: &str, value: bool) {
-        self.set_parameter(key, &value.to_string());
-    }
-
 
     pub fn register_callback<F>(&mut self, key: &str, callback: F) -> usize
     where
@@ -172,20 +165,38 @@ impl ParameterManager {
         }
     }
 
-    pub fn get_parameter(&self, key: &str, default_value: &str) -> String {
-        self.params.get(key).cloned().unwrap_or(default_value.to_string())
+    pub fn get_parameter<T, U>(&self, key: &str, default_value: U) -> T
+    where
+        T: FromStr + Default,
+        U: Into<T>,
+    {
+        self.params
+            .get(key)
+            .and_then(|v| v.parse().ok())
+            .unwrap_or_else(|| default_value.into())
     }
 
-    pub fn get_parameter_int(&self, key: &str, default_value: i32) -> i32 {
-        self.params.get(key).and_then(|v| v.parse().ok()).unwrap_or(default_value)
+    pub fn get_parameter_string(&self, key: &str, default_value: &str) -> String{
+        return self.get_parameter::<String, &str>(key, default_value);
     }
 
-    pub fn get_parameter_float(&self, key: &str, default_value: f32) -> f32 {
-        self.params.get(key).and_then(|v| v.parse().ok()).unwrap_or(default_value)
+    pub fn get_parameter_int(&self, key: &str, default_value: i32) -> i32{
+        self.params
+            .get(key)
+            .and_then(|v| v.parse::<f64>().ok().map(|f| f as i32))
+            .unwrap_or(default_value)
     }
 
-    pub fn get_parameter_bool(&self, key: &str, default_value: bool) -> bool {
-        self.params.get(key).map_or(default_value, |v| v == "true")
+    pub fn get_parameter_float(&self, key: &str, default_value: f32) -> f32{
+        return self.get_parameter::<f32, f32>(key, default_value);
+    }
+
+    pub fn get_parameter_bool(&self, key: &str, default_value: bool) -> bool{
+        if self.get_parameter_string(key, &default_value.to_string()) == "true" {
+            true
+        } else {
+            false
+        }
     }
 }
 
@@ -193,7 +204,7 @@ fn main() {
     let param_manager = ParameterManager::get_manager();
 
     param_manager.lock().unwrap().set_parameter("example_key", "example_value");
-    let value = param_manager.lock().unwrap().get_parameter("example_key", "default_value");
+    let value: String = param_manager.lock().unwrap().get_parameter("example_key", "default_value");
     println!("Parameter value: {}", value);
 }
 
@@ -215,21 +226,35 @@ mod tests {
         let _callback_id_w = p_params.register_callback("param*", callback_w);
 
         p_params.set_parameter("paramA", "ABC");
-        assert_eq!(p_params.get_parameter("paramA", "HOGE"), "ABC");
+        assert_eq!(p_params.get_parameter::<String, &str>("paramA", "HOGE"), "ABC");
 
-        p_params.set_parameter_bool("paramB", true);
-        assert_eq!(p_params.get_parameter("paramB", "false"), "true");
-        assert_eq!(p_params.get_parameter_bool("paramB", false), true);
+        p_params.set_parameter("paramB", true);
+        assert_eq!(p_params.get_parameter::<String, &str>("paramB", "false"), "true");
+        assert_eq!(p_params.get_parameter::<bool, bool>("paramB", false), true);
 
-        p_params.set_parameter_int("paramC", 1);
-        assert_eq!(p_params.get_parameter_int("paramC", 0), 1);
-        assert_eq!(p_params.get_parameter_int("paramD", -1), -1);
+        p_params.set_parameter("paramC", 1);
+        assert_eq!(p_params.get_parameter::<i32, i32>("paramC", 0), 1);
+        assert_eq!(p_params.get_parameter::<i32, i32>("paramD", -1), -1);
+
+        let int_value:i32 = p_params.get_parameter("paramC", 0);
+        assert_eq!(int_value, 1);
+
+        let int_value2:i32 = p_params.get_parameter_int("paramC", 0);
+        assert_eq!(int_value2, 1);
+
+        // check helper func
+        p_params.set_parameter("paramE", "1.5");
+        assert_eq!(p_params.get_parameter_string("paramE", ""), "1.5");
+        assert_eq!(p_params.get_parameter_int("paramE", 0), 1);
+        assert_eq!(p_params.get_parameter_float("paramE", 0.0), 1.5);
+        assert_eq!(p_params.get_parameter_bool("paramE", true), false);
+
 
         // read only
-        p_params.set_parameter_int("ro.paramD", 1);
-        assert_eq!(p_params.get_parameter_int("ro.paramD", 0), 1);
-        p_params.set_parameter_int("ro.paramD", 2);
-        assert_eq!(p_params.get_parameter_int("ro.paramD", 0), 1);
+        p_params.set_parameter("ro.paramD", 1);
+        assert_eq!(p_params.get_parameter::<i32, i32>("ro.paramD", 0), 1);
+        p_params.set_parameter("ro.paramD", 2);
+        assert_eq!(p_params.get_parameter::<i32, i32>("ro.paramD", 0), 1);
 
         // register callback
         let _callback_2 = |key: String, value: String| {
