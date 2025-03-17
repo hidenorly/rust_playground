@@ -117,8 +117,22 @@ impl ParameterManager {
             callback: Arc::new(Mutex::new(callback)),
         };
 
-        self.listeners.entry(key.to_string()).or_insert_with(Vec::new).push(listener.clone());
-        self.listener_id_reverse.insert(listener_id, key.to_string());
+        if key.ends_with('*') {
+            // wild card case
+            let _key = key[..key.len() - 1].to_string();
+            self.wild_card_listeners
+                .entry(_key.clone())
+                .or_insert_with(Vec::new)
+                .push(listener.clone());
+            self.listener_id_reverse.insert(listener_id, key.to_string());
+        } else {
+            // complete match case
+            self.listeners
+                .entry(key.to_string())
+                .or_insert_with(Vec::new)
+                .push(listener.clone());
+            self.listener_id_reverse.insert(listener_id, key.to_string());
+        }
 
         listener_id
     }
@@ -203,11 +217,19 @@ impl ParameterManager {
 fn main() {
     let param_manager = ParameterManager::get_manager();
 
-    param_manager.lock().unwrap().set_parameter("example_key", "example_value");
-    let value: String = param_manager.lock().unwrap().get_parameter("example_key", "default_value");
+    let mut p_params = param_manager.lock().unwrap();
+
+    let callback_w = |key: String, value: String| {
+        println!("callback(example*)): [{}] = {}", key, value);
+    };
+
+    let _callback_id_w = p_params.register_callback("example*", callback_w);
+
+
+    p_params.set_parameter("example_key", "example_value");
+    let value: String = p_params.get_parameter("example_key", "default_value");
     println!("Parameter value: {}", value);
 }
-
 
 
 #[cfg(test)]
