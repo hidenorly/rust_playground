@@ -248,6 +248,11 @@ fn main() {
 }
 
 
+
+
+
+
+
 use mockall::{mock, predicate::eq};
 use std::rc::Rc;
 use std::cell::RefCell;
@@ -313,18 +318,22 @@ mod tests {
 
     #[test]
     fn test_callback() {
-        let mut p_params = ParameterManager::new();
-        let mut mock_callback = MockMyCallback::new();
+        let binding = ParameterManager::get_manager();
+        let mut p_params = binding.lock().unwrap();
 
-        let _callback_id = p_params.register_callback("paramA", mock_callback);
-
-
-        mock_callback
-            .expect_call()
-            .with(eq("paramA".to_string()), eq("ABC".to_string()))
+        let mut mock_my_callback = MockMyCallback::new();
+        mock_my_callback.expect_call()
+            .with(eq("paramA".to_string()), eq("test_value".to_string()))
             .times(1)
             .returning(|_, _| ());
 
-        p_params.set_parameter("paramA", "ABC");
+        let mock_callback = move |key: String, value: String| {
+            mock_my_callback.call(key, value);
+        };
+
+        let _callback_id = p_params.register_callback("paramA", mock_callback);
+
+        p_params.set_parameter("paramA", "test_value");
+
     }
 }
