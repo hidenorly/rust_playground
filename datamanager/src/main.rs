@@ -254,8 +254,6 @@ fn main() {
 
 
 use mockall::{mock, predicate::eq};
-use std::rc::Rc;
-use std::cell::RefCell;
 
 #[cfg(test)]
 mod tests {
