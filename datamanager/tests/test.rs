@@ -15,11 +15,12 @@
 */
 
 use mockall::{mock, predicate::eq};
-use datamanager::{ParameterManager};
+use datamanager::{ParameterManager, ParamRule, ParamType, ParamRange};
 
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashSet;
     use super::*;
 
     mock! {
@@ -96,5 +97,37 @@ mod tests {
 
         p_params.set_parameter("paramA", "test_value");
 
+    }
+
+
+    #[test]
+    fn test_rule() {
+        let mut manager = ParameterManager::new();
+        let rule = ParamRule {
+            param_type: ParamType::TypeInt,
+            range: ParamRange::Ranged,
+            range_min: 1.0,
+            range_max: 10.0,
+            enum_vals: HashSet::new(),
+        };
+        
+        manager.set_parameter_rule("example", rule.clone());
+        let retrieved_rule = manager.get_parameter_rule("example");
+        
+        match retrieved_rule.param_type {
+            ParamType::TypeInt => println!("Retrieved rule type: TypeInt"),
+            _ => println!("Retrieved rule type: Other"),
+        }
+
+        manager.set_parameter("example", "1");
+        assert_eq!(manager.get_parameter_int("example", 0), 1);
+
+        // illegal case then the request should be clamped
+        manager.set_parameter("example", "0");
+        assert_eq!(manager.get_parameter_int("example", 0), 1);
+        manager.set_parameter("example", 0);
+        assert_eq!(manager.get_parameter_int("example", 0), 1);
+        manager.set_parameter("example", 11);
+        assert_eq!(manager.get_parameter_int("example", 0), 10);
     }
 }

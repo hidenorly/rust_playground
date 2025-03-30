@@ -228,21 +228,18 @@ impl ParameterManager {
             false
         }
     }
-}
 
-fn main() {
-    let param_manager = ParameterManager::get_manager();
+    pub fn set_parameter_rule(&mut self, key: &str, rule: ParamRule) {
+        self.param_rules.insert(key.to_string(), rule);
+    }
 
-    let mut p_params = param_manager.lock().unwrap();
-
-    let callback_w = |key: String, value: String| {
-        println!("callback(example*)): [{}] = {}", key, value);
-    };
-
-    let _callback_id_w = p_params.register_callback("example*", callback_w);
-
-
-    p_params.set_parameter("example_key", "example_value");
-    let value: String = p_params.get_parameter("example_key", "default_value");
-    println!("Parameter value: {}", value);
+    pub fn get_parameter_rule(&self, key: &str) -> ParamRule {
+        self.param_rules.get(key).cloned().unwrap_or_else(|| ParamRule {
+            param_type: ParamType::TypeString,
+            range: ParamRange::RangeAny,
+            range_min: 0.0,
+            range_max: 0.0,
+            enum_vals: HashSet::new(),
+        })
+    }
 }
