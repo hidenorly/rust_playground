@@ -129,5 +129,43 @@ mod tests {
         assert_eq!(manager.get_parameter_int("example", 0), 1);
         manager.set_parameter("example", 11);
         assert_eq!(manager.get_parameter_int("example", 0), 10);
+
+        manager.set_parameter("example", 1.0);
+        assert_eq!(manager.get_parameter_int("example", 0), 1);
+
+        manager.set_parameter("example", 11.0);
+        assert_eq!(manager.get_parameter_int("example", 0), 10);
+    }
+
+    #[test]
+    fn test_rule_bool() {
+        let mut manager = ParameterManager::new();
+        let rule = ParamRule {
+            param_type: ParamType::TypeBool,
+            range: ParamRange::Ranged,
+            range_min: -1.0,
+            range_max: 0.0,
+            enum_vals: HashSet::new(),
+        };
+        
+        manager.set_parameter_rule("example", rule.clone());
+        let retrieved_rule = manager.get_parameter_rule("example");
+        
+        match retrieved_rule.param_type {
+            ParamType::TypeBool => println!("Retrieved rule type: TypeBool"),
+            _ => println!("Retrieved rule type: Other"),
+        }
+
+        manager.set_parameter("example", "true");
+        assert_eq!(manager.get_parameter_bool("example", false), true);
+        assert_eq!(manager.get_parameter_string("example", "false"), "true");
+        assert_eq!(manager.get_parameter_int("example", 0), 0); // int("true")==0
+        assert_eq!(manager.get_parameter_float("example", 0.0), 0.0); // int("true")==0
+
+        manager.set_parameter("example", "false");
+        assert_eq!(manager.get_parameter_bool("example", true), false);
+        assert_eq!(manager.get_parameter_string("example", "true"), "false");
+        assert_eq!(manager.get_parameter_int("example", 0), 0); // int("true")==0
+        assert_eq!(manager.get_parameter_float("example", 0.0), 0.0); // int("true")==0
     }
 }
