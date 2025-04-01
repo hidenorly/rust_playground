@@ -165,7 +165,39 @@ mod tests {
         manager.set_parameter("example", "false");
         assert_eq!(manager.get_parameter_bool("example", true), false);
         assert_eq!(manager.get_parameter_string("example", "true"), "false");
-        assert_eq!(manager.get_parameter_int("example", 0), 0); // int("true")==0
+        assert_eq!(manager.get_parameter_int("example", 0), 0); // float("true")==0
         assert_eq!(manager.get_parameter_float("example", 0.0), 0.0); // int("true")==0
+    }
+
+    #[test]
+    fn test_rule_enum() {
+        let mut manager = ParameterManager::new();
+        let rule = ParamRule {
+            param_type: ParamType::TypeString,
+            range: ParamRange::RangeEnum,
+            range_min: 0.0,
+            range_max: 0.0,
+            enum_vals: ["low", "mid", "high"].iter().map(|s| s.to_string()).collect(),
+        };
+        
+        manager.set_parameter_rule("example", rule.clone());
+        let retrieved_rule = manager.get_parameter_rule("example");
+        
+        match retrieved_rule.param_type {
+            ParamType::TypeString => println!("Retrieved rule type: TypeString"),
+            _ => println!("Retrieved rule type: Other"),
+        }
+
+        manager.set_parameter("example", "low");
+        assert_eq!(manager.get_parameter_string("example", ""), "low");
+
+        manager.set_parameter("example", "mid");
+        assert_eq!(manager.get_parameter_string("example", ""), "mid");
+
+        manager.set_parameter("example", "high");
+        assert_eq!(manager.get_parameter_string("example", ""), "high");
+
+        manager.set_parameter("example", "off");
+        assert_eq!(manager.get_parameter_string("example", ""), "high");
     }
 }
