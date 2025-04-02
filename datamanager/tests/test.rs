@@ -101,7 +101,7 @@ mod tests {
 
 
     #[test]
-    fn test_rule() {
+    fn test_rule_int() {
         let mut manager = ParameterManager::new();
         let rule = ParamRule {
             param_type: ParamType::TypeInt,
@@ -167,6 +167,42 @@ mod tests {
         assert_eq!(manager.get_parameter_string("example", "true"), "false");
         assert_eq!(manager.get_parameter_int("example", 0), 0); // float("true")==0
         assert_eq!(manager.get_parameter_float("example", 0.0), 0.0); // int("true")==0
+    }
+
+    #[test]
+    fn test_rule_string() {
+        let mut manager = ParameterManager::new();
+        let rule = ParamRule {
+            param_type: ParamType::TypeString,
+            range: ParamRange::RangeAny,
+            range_min: 0.0,
+            range_max: 0.0,
+            enum_vals: HashSet::new(),
+        };
+        
+        manager.set_parameter_rule("example", rule.clone());
+        let retrieved_rule = manager.get_parameter_rule("example");
+        
+        match retrieved_rule.param_type {
+            ParamType::TypeString => println!("Retrieved rule type: TypeString"),
+            _ => println!("Retrieved rule type: Other"),
+        }
+
+        manager.set_parameter("example", "low");
+        assert_eq!(manager.get_parameter_string("example", ""), "low");
+        assert_eq!(manager.get_parameter_int("example", 0), 0);
+        assert_eq!(manager.get_parameter_float("example", 0.0), 0.0);
+        assert_eq!(manager.get_parameter_bool("example", true), false);
+
+        manager.set_parameter("example", "1.0");
+        assert_eq!(manager.get_parameter_int("example", 0), 1);
+        assert_eq!(manager.get_parameter_float("example", 0.0), 1.0);
+        assert_eq!(manager.get_parameter_bool("example", true), false);
+
+        manager.set_parameter("example", "1");
+        assert_eq!(manager.get_parameter_int("example", 0), 1);
+        assert_eq!(manager.get_parameter_float("example", 0.0), 1.0);
+        assert_eq!(manager.get_parameter_bool("example", true), false);
     }
 
     #[test]
