@@ -138,6 +138,37 @@ mod tests {
     }
 
     #[test]
+    fn test_rule_float() {
+        let mut manager = ParameterManager::new();
+        let rule = ParamRule {
+            param_type: ParamType::TypeFloat,
+            range: ParamRange::Ranged,
+            range_min: -1.0,
+            range_max: 1.0,
+            enum_vals: HashSet::new(),
+        };
+        
+        manager.set_parameter_rule("example", rule.clone());
+        let retrieved_rule = manager.get_parameter_rule("example");
+        
+        match retrieved_rule.param_type {
+            ParamType::TypeFloat => println!("Retrieved rule type: TypeFloat"),
+            _ => println!("Retrieved rule type: Other"),
+        }
+
+        manager.set_parameter("example", 1.0);
+        assert_eq!(manager.get_parameter_bool("example", true), false);
+        assert_eq!(manager.get_parameter_string("example", ""), "1"); // Note the return is "1". not "1.0"
+        assert_eq!(manager.get_parameter_int("example", 0), 1);
+        assert_eq!(manager.get_parameter_float("example", 0.0), 1.0);
+
+        manager.set_parameter("example", 1.1);
+        assert_eq!(manager.get_parameter_float("example", 0.0), 1.0);
+        manager.set_parameter("example", -1.1);
+        assert_eq!(manager.get_parameter_float("example", 0.0), -1.0);
+    }
+
+    #[test]
     fn test_rule_bool() {
         let mut manager = ParameterManager::new();
         let rule = ParamRule {
