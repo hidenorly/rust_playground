@@ -18,6 +18,7 @@ use std::str::FromStr;
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Mutex};
 use once_cell::sync::Lazy;
+use std::io::{BufRead, Write};
 
 
 #[derive(Clone)]
@@ -241,5 +242,36 @@ impl ParameterManager {
             range_max: 0.0,
             enum_vals: HashSet::new(),
         })
+    }
+
+    pub fn store_to_stream<W: Write>(&self, writer: &mut W) -> bool {
+        let mut result = false;
+        for (key, value) in &self.params {
+            let buf = format!("\"{}\":\"{}\"\n", key, value);
+            if writer.write_all(buf.as_bytes()).is_ok() {
+                result = true;
+            }
+        }
+        result
+    }
+
+    pub fn restore_from_stream<R: BufRead>(&mut self, reader: &mut R, override_existing: bool) -> bool {
+        let mut result = false;
+        let mut line = String::new();
+
+        while reader.read_line(&mut line).is_ok() && !line.is_empty() {
+            let tokens: Vec<&str> = line.trim().split("\":\"").collect();
+            if tokens.len() == 2 {
+                let key = tokens[0].trim_matches('"').to_string();
+                let value = tokens[1].trim_matches('"').to_string();
+                if override_existing || !self.params.contains_key(&key) {
+                    self.set_parameter(&key, value);
+                }
+                result = true;
+            }
+            line.clear(); // Reset line buffer for next iteration
+        }
+
+        result
     }
 }

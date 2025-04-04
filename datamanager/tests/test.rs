@@ -21,6 +21,9 @@ use datamanager::{ParameterManager, ParamRule, ParamType, ParamRange};
 #[cfg(test)]
 mod tests {
     use std::collections::HashSet;
+    use std::io::{Cursor};
+    use std::io::{BufReader};
+
     use super::*;
 
     mock! {
@@ -267,4 +270,104 @@ mod tests {
         manager.set_parameter("example", "off");
         assert_eq!(manager.get_parameter_string("example", ""), "high");
     }
+
+    #[test]
+    fn test_store_to_stream() {
+        let mut manager = ParameterManager::new();
+        manager.set_parameter("key1", "value1");
+        manager.set_parameter("key2", "value2");
+
+        let mut output = Vec::new();
+        let result = manager.store_to_stream(&mut output);
+        assert!(result, "store_to_stream should return true when writing succeeds");
+
+        let output_str = String::from_utf8(output).expect("Failed to convert to string");
+        let expected_output1 = "\"key1\":\"value1\"\n\"key2\":\"value2\"\n";
+        let expected_output2 = "\"key2\":\"value2\"\n\"key1\":\"value1\"\n";
+
+        assert!(
+            output_str == expected_output1 || output_str == expected_output2,
+            "Unexpected output: {}",
+            output_str
+        );
+    }
+
+    #[test]
+    fn test_restore_from_stream_override() {
+        let input_data = "\"key1\":\"value1\"\n\"key2\":\"value2\"\n";
+        let cursor = Cursor::new(input_data.as_bytes());
+        let mut reader = BufReader::new(cursor);
+
+        let mut manager = ParameterManager::new();
+        let result = manager.restore_from_stream(&mut reader, true);
+        assert!(result, "restore_from_stream should return true when successful");
+
+        assert_eq!(
+            manager.get_parameter_string("key1", ""),
+            "value1",
+            "key1 should be set to value1"
+        );
+        assert_eq!(
+            manager.get_parameter_string("key2", ""),
+            "value2",
+            "key2 should be set to value2"
+        );
+    }
+
+    #[test]
+    fn test_restore_from_stream_no_override() {
+        let input_data = "\"key1\":\"new_value\"\n\"key2\":\"new_value2\"\n";
+        let cursor = Cursor::new(input_data.as_bytes());
+        let mut reader = BufReader::new(cursor);
+
+        let mut manager = ParameterManager::new();
+        manager.set_parameter("key1", "old_value");
+
+        let result = manager.restore_from_stream(&mut reader, false);
+        assert!(result, "restore_from_stream should return true when successful");
+
+        assert_eq!(
+            manager.get_parameter_string("key1", ""),
+            "old_value",
+            "key1 should retain old_value because override is false"
+        );
+        assert_eq!(
+            manager.get_parameter_string("key2", ""),
+            "new_value2",
+            "key2 should be set to new_value2"
+        );
+    }
+
+    #[test]
+    fn test_restore_from_stream_empty_input() {
+        let input_data = "";
+        let cursor = Cursor::new(input_data.as_bytes());
+        let mut reader = BufReader::new(cursor);
+
+        let mut manager = ParameterManager::new();
+        let result = manager.restore_from_stream(&mut reader, true);
+        assert!(!result, "restore_from_stream should return false on empty input");
+    }
+
+    #[test]
+    fn test_restore_from_stream_malformed_input() {
+        let input_data = "\"key1\" \"value1\"\n\"key2\":\"value2\"\n"; // invalid format on key1
+        let cursor = Cursor::new(input_data.as_bytes());
+        let mut reader = BufReader::new(cursor);
+
+        let mut manager = ParameterManager::new();
+        let result = manager.restore_from_stream(&mut reader, true);
+        assert!(result, "restore_from_stream should return true if at least one line is valid");
+
+        assert!(
+            manager.get_parameter_string("key1", "") == "",
+            "Malformed key1 should not be added"
+        );
+        assert_eq!(
+            manager.get_parameter_string("key2", ""),
+            "value2",
+            "Valid key2 should be added"
+        );
+    }
 }
+
