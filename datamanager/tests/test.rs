@@ -22,7 +22,10 @@ use datamanager::{ParameterManager, ParamRule, ParamType, ParamRange};
 mod tests {
     use std::collections::HashSet;
     use std::io::{Cursor};
-    use std::io::{BufReader};
+
+    use std::fs::{File, OpenOptions};
+    use std::io::{BufReader, BufWriter, Write};
+    use tempfile::tempdir;
 
     use super::*;
 
@@ -368,6 +371,59 @@ mod tests {
             "value2",
             "Valid key2 should be added"
         );
+    }
+
+    #[test]
+    fn test_store_to_file() {
+        let dir = tempdir().expect("Failed to create temp dir");
+        let file_path = dir.path().join("params.txt");
+        let file = File::create(&file_path).expect("Failed to create file");
+        let mut writer = BufWriter::new(file);
+
+        let mut manager = ParameterManager::new();
+        manager.set_parameter("key1", "value1");
+        manager.set_parameter("key2", "value2");
+
+        assert!(manager.store_to_stream(&mut writer), "Failed to store to stream");
+    }
+
+    #[test]
+    fn test_restore_from_file() {
+        let dir = tempdir().expect("Failed to create temp dir");
+        let file_path = dir.path().join("params.txt");
+        {
+            let file = File::create(&file_path).expect("Failed to create file");
+            let mut writer = BufWriter::new(file);
+            writeln!(writer, "\"key1\":\"value1\"\n\"key2\":\"value2\"").expect("Failed to write");
+        }
+
+        let file = File::open(&file_path).expect("Failed to open file");
+        let mut reader = BufReader::new(file);
+        let mut manager = ParameterManager::new();
+
+        assert!(manager.restore_from_stream(&mut reader, true), "Failed to restore from file");
+        assert_eq!(manager.get_parameter_string("key1", ""), "value1");
+        assert_eq!(manager.get_parameter_string("key2", ""), "value2");
+    }
+
+    #[test]
+    fn test_restore_from_file_no_override() {
+        let dir = tempdir().expect("Failed to create temp dir");
+        let file_path = dir.path().join("params.txt");
+        {
+            let file = File::create(&file_path).expect("Failed to create file");
+            let mut writer = BufWriter::new(file);
+            writeln!(writer, "\"key1\":\"new_value\"\n\"key2\":\"value2\"").expect("Failed to write");
+        }
+
+        let file = File::open(&file_path).expect("Failed to open file");
+        let mut reader = BufReader::new(file);
+        let mut manager = ParameterManager::new();
+        manager.set_parameter("key1", "old_value");
+
+        assert!(manager.restore_from_stream(&mut reader, false), "Failed to restore with no override");
+        assert_eq!(manager.get_parameter_string("key1", ""), "old_value");
+        assert_eq!(manager.get_parameter_string("key2", ""), "value2");
     }
 }
 
